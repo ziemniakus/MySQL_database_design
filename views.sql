@@ -1,0 +1,206 @@
+start transaction;
+
+drop view if exists OSOBA_UPOWAZNIONA_Z_PACJENTEM;
+drop view if exists BADANIA_PACJENCI;
+drop view if exists OPIEKA_NAD_PACJENTAMI;
+drop view if exists ILOSC_WIZYT_LEKARZY;
+drop view if exists PIELEGNIARKI_ODDZIALY;
+drop view if exists LEKARZE_ODDZIALY;
+drop view if exists OSTATNIO_ZATRUDNIENI_LEKARZE;
+drop view if exists OSTATNIO_ZATRUDNIONE_PIELEGNIARKI;
+drop view if exists OSTATNIO_PRZYJĘCI;
+drop view if exists ROCZNE_ZAROBKI;
+drop view if exists LISTA_ADRESY_PRACOWNIKOW;
+drop view if exists LISTA_ADRESY_PACJENTOW;
+drop view if exists WSZYSTKO_PACJENCI;
+drop view if exists LEKARZE_WIDOK;
+drop view if exists PIELEGNIARKI_WIDOK;
+
+
+/*-----------------------------------------------------------*/
+
+
+create view OSOBA_UPOWAZNIONA_Z_PACJENTEM as
+select 
+concat(PR.IMIE,' ',PR.NAZWISKO) as 'LEKARZ PROWADZĄCY', ODD.NAZWA as 'ODDZIAŁ',
+concat(P.IMIE,' ',P.NAZWISKO) as 'PACJENT', concat(U.IMIE,' ',U.NAZWISKO) as 'OSOBA UPOWAŻNIONA', 
+U.RELACJA as 'POKREWIEŃSTWO', U.TELEFON as 'TELEFON KONTAKTOWY'
+from OSOBA_UPOWAZNIONA U, PACJENCI P, PRACOWNICY PR, LEKARZE L, ODDZIALY ODD
+where U.UPOWAZNIONA_ID = P.UPOWAZNIONA_ID and P.LEKARZ_ID = PR.PRACOWNIK_ID and
+PR.PRACOWNIK_ID = L.LEKARZ_ID and L.ODDZIAL_ID = ODD.ODDZIAL_ID
+order by P.DATA_PRZYJECIA desc;
+
+
+/*-----------------------------------------------------------*/
+
+
+create view BADANIA_PACJENCI as
+select
+concat(P.IMIE,' ',P.NAZWISKO) as 'PACJENT', B.DATA_BADANIA as 'DATA BADANIA',
+I.CHOROBA as 'ICD10', ifnull(B.ROZPOZNANIE,'-') as 'ROZPOZNANIE', 
+ifnull(Z.LEK,'-') as 'LEKI', ifnull(Z.DAWKOWANIE,'-') as 'DAWKOWANIE'
+from PACJENCI P, BADANIA B, ZALECENIA Z, ICD10 I
+where P.PACJENT_ID = B.PACJENT_ID and B.BADANIE_ID = Z.BADANIE_ID and I.ICD10_ID = B.ICD10_ID
+order by DATA_BADANIA desc;
+
+
+/*-----------------------------------------------------------*/
+
+
+create view OPIEKA_NAD_PACJENTAMI as
+select
+concat(PR.IMIE,' ',PR.NAZWISKO) as 'PIELĘGNIARKA', concat(P.IMIE,' ',P.NAZWISKO) as 'PACJENT',
+O.DZIEN as 'DZIEŃ', S.WYDARZENIE as 'STOLEC', O.TEMPERATURA, L.WYDARZENIE as 'LEKI', ifnull(O.OPIS,'-') as 'OPIS'
+from PIELEGNIARKI PI, PACJENCI P, OPIEKA O, PRACOWNICY PR, LEKI L, LOGICZNE S
+where PI.PIELEGNIARKA_ID = PR.PRACOWNIK_ID and PI.PIELEGNIARKA_ID = O.PIELEGNIARKA_ID and P.PACJENT_ID = O.PACJENT_ID
+and L.LEKI_ID = O.LEKI and S.LOGICZNE_ID = O.STOLEC;
+
+
+/*-----------------------------------------------------------*/
+
+
+create view ILOSC_WIZYT_LEKARZY as
+select
+concat(PR.IMIE,' ',PR.NAZWISKO) as 'LEKARZ', count(B.BADANIE_ID) as 'ILOŚĆ WIZYT'
+from PRACOWNICY PR, LEKARZE L, BADANIA B
+where PR.PRACOWNIK_ID = L.LEKARZ_ID and L.LEKARZ_ID = B.LEKARZ_ID
+group by B.LEKARZ_ID;
+
+
+/*-----------------------------------------------------------*/
+
+
+create view PIELEGNIARKI_ODDZIALY as
+select
+concat(PR.IMIE,' ',PR.NAZWISKO) as 'PIELĘGNIARKA', ODD.NAZWA as 'NAZWA ODDZIAŁU', ODD.LOKALIZACJA
+from PRACOWNICY PR, ODDZIALY ODD, PIELEGNIARKI P
+where PR.PRACOWNIK_ID = P.PIELEGNIARKA_ID and P.ODDZIAL_ID = ODD.ODDZIAL_ID
+order by ODD.ODDZIAL_ID;
+
+
+/*-----------------------------------------------------------*/
+
+
+create view LEKARZE_ODDZIALY as
+select
+concat(PR.IMIE,' ',PR.NAZWISKO) as 'LEKARZ', ODD.NAZWA as 'NAZWA ODDZIAŁU', ODD.LOKALIZACJA
+from PRACOWNICY PR, ODDZIALY ODD, LEKARZE L
+where PR.PRACOWNIK_ID = L.LEKARZ_ID and L.ODDZIAL_ID = ODD.ODDZIAL_ID
+order by ODD.ODDZIAL_ID;
+
+
+/*-----------------------------------------------------------*/
+
+
+create view OSTATNIO_ZATRUDNIENI_LEKARZE as
+select
+concat(PR.IMIE,' ',PR.NAZWISKO) as 'LEKARZ', ODD.NAZWA as 'NAZWA ODDZIAŁU',
+L.DATA_ZATRUDNIENIA as 'DATA ZATRUDNIENIA'
+from PRACOWNICY PR, LEKARZE L, ODDZIALY ODD
+where PR.PRACOWNIK_ID = L.LEKARZ_ID and ODD.ODDZIAL_ID = L.ODDZIAL_ID
+order by L.DATA_ZATRUDNIENIA desc;
+
+
+/*-----------------------------------------------------------*/
+
+
+create view OSTATNIO_ZATRUDNIONE_PIELEGNIARKI as
+select
+concat(PR.IMIE,' ',PR.NAZWISKO) as 'PIELĘGNIARKA', ODD.NAZWA as 'NAZWA ODDZIAŁU',
+P.DATA_ZATRUDNIENIA as 'DATA ZATRUDNIENIA'
+from PRACOWNICY PR, PIELEGNIARKI P, ODDZIALY ODD
+where PR.PRACOWNIK_ID = P.PIELEGNIARKA_ID and ODD.ODDZIAL_ID = P.ODDZIAL_ID;
+
+
+/*-----------------------------------------------------------*/
+
+
+create view OSTATNIO_PRZYJĘCI as
+select
+concat(P.IMIE,' ',P.NAZWISKO) as 'PACJENT', concat(PR.IMIE,' ',PR.NAZWISKO) as 'LEKARZ', 
+ODD.NAZWA as 'NAZWA ODDZIAŁU', P.DATA_PRZYJECIA as 'DATA PRZYJĘCIA'
+from PACJENCI P, PRACOWNICY PR, LEKARZE L, ODDZIALY ODD
+where PR.PRACOWNIK_ID = L.LEKARZ_ID and ODD.ODDZIAL_ID = L.ODDZIAL_ID and L.LEKARZ_ID = P.LEKARZ_ID
+order by P.DATA_PRZYJECIA desc;
+
+
+/*-----------------------------------------------------------*/
+
+
+create view ROCZNE_ZAROBKI as
+select
+concat(PR.IMIE,' ',PR.NAZWISKO) as 'PRACOWNIK', (W.PENSJA*12 + IFNULL(W.PREMIA,0)) as 'ZAROBKI ROCZNE'
+from PRACOWNICY PR, WIDELKI W
+where PR.PRACOWNIK_ID = W.PRACOWNIK_ID
+order by 'ZAROBKI ROCZNE' desc;
+
+
+/*-----------------------------------------------------------*/
+
+
+create view LISTA_ADRESY_PRACOWNIKOW as
+select
+concat(PR.IMIE,' ',PR.NAZWISKO) as 'PRACOWNIK', A.ULICA, A.KOD_POCZTOWY as 'KOD POCZTOWY', A.MIASTO,
+A.PANSTWO as 'PAŃSTWO'
+from PRACOWNICY PR, ADRESY_PRACOWNIKOW A
+where PR.PRACOWNIK_ID = A.PRACOWNIK_ID
+order by PR.NAZWISKO;
+
+
+/*-----------------------------------------------------------*/
+
+
+create view LISTA_ADRESY_PACJENTOW as
+select
+concat(P.IMIE,' ',P.NAZWISKO) as 'PACJENT', AP.ULICA, AP.KOD_POCZTOWY as 'KOD POCZTOWY', AP.MIASTO, 
+AP.PANSTWO as 'PAŃSTWO'
+from PACJENCI P, ADRESY_PACJENTOW AP
+where P.PACJENT_ID = AP.PACJENT_ID
+order by P.NAZWISKO;
+
+
+/*-----------------------------------------------------------*/
+
+
+create view WSZYSTKO_PACJENCI as
+select
+concat(P.IMIE,' ',P.NAZWISKO) as 'PACJENT', ifnull(P.PESEL,'-') as PESEL, P.DATA_URODZENIA, AP.ULICA, 
+AP.KOD_POCZTOWY as 'KOD POCZTOWY', AP.MIASTO, AP.PANSTWO as 'PAŃSTWO', UB.WYDARZENIE as UBEZPIECZENIE, 
+concat(PR.IMIE,' ',PR.NAZWISKO) as 'LEKARZ', ODD.NAZWA as 'NAZWA ODDZIAŁU', P.DATA_PRZYJECIA as 'DATA PRZYJĘCIA',
+LG.WYDARZENIE as 'ZGODA PRZYJĘCIA', P.PODMIOT_KIERUJACY, P.WAGA, P.WZROST, LOG. WYDARZENIE as ALERGIE, 
+ifnull(P.OPIS_ALERGII,'-') as 'OPIS ALERGII', concat(U.IMIE,' ',U.NAZWISKO) as 'OSOBA UPOWAŻNIONA', 
+ifnull(P.TELEFON,'-') as TELEFON, ifnull(P.EMAIL,'-') as EMAIL, ifnull(P.CZY_PACJENT,'Tak') as 'Czy pacjent?'
+from PACJENCI P, LOGICZNE LOG, PRACOWNICY PR, ADRESY_PACJENTOW AP, ODDZIALY ODD, OSOBA_UPOWAZNIONA U, LEKARZE L, 
+LOGICZNE LG, LOGICZNE UB
+where LOG.LOGICZNE_ID = P.ALERGIE and P.PACJENT_ID = AP.PACJENT_ID and PR.PRACOWNIK_ID = L.LEKARZ_ID
+and ODD.ODDZIAL_ID = L.ODDZIAL_ID and P.LEKARZ_ID = L.LEKARZ_ID and U.UPOWAZNIONA_ID = P.UPOWAZNIONA_ID
+and LG.LOGICZNE_ID = P.ZGODA_PRZYJECIA and UB.LOGICZNE_ID = P.UBEZPIECZENIE
+order by P.NAZWISKO;
+
+
+/*-----------------------------------------------------------*/
+
+
+create view LEKARZE_WIDOK as
+select
+concat(PR.IMIE,' ',PR.NAZWISKO) as 'LEKARZ', 'Lekarz' as OKUPACJA, PR.PESEL, PR.TELEFON, PR.EMAIL, ODD.NAZWA, 
+L.DATA_URODZENIA, A.ULICA, A.KOD_POCZTOWY, A.MIASTO, A.PANSTWO, L.SPECJALIZACJA, L.STOPIEN, L.NUMER_ZAWODU, 
+L.DATA_ZATRUDNIENIA
+from PRACOWNICY PR, LEKARZE L, ODDZIALY ODD, ADRESY_PRACOWNIKOW A
+where PR.PRACOWNIK_ID = L.LEKARZ_ID and PR.PRACOWNIK_ID = A.PRACOWNIK_ID and L.ODDZIAL_ID = ODD.ODDZIAL_ID
+order by PR.NAZWISKO;
+
+
+/*-----------------------------------------------------------*/
+
+
+create view PIELEGNIARKI_WIDOK as
+select
+concat(PR.IMIE,' ',PR.NAZWISKO) as 'PIELĘGNIARKA', 'Pielęgniarka' as OKUPACJA, PR.PESEL, PR.TELEFON, PR.EMAIL, ODD.NAZWA, 
+P.DATA_URODZENIA, A.ULICA, A.KOD_POCZTOWY, A.MIASTO, A.PANSTWO, P.DATA_ZATRUDNIENIA
+from PRACOWNICY PR, PIELEGNIARKI P, ODDZIALY ODD, ADRESY_PRACOWNIKOW A
+where PR.PRACOWNIK_ID = P.PIELEGNIARKA_ID and PR.PRACOWNIK_ID = A.PRACOWNIK_ID and P.ODDZIAL_ID = ODD.ODDZIAL_ID
+order by PR.NAZWISKO;
+
+
+commit;
